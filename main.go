@@ -1,62 +1,78 @@
 
 package main
-import ("fmt"; "core/std")
+import ("fmt"; "core/std"; "core/bit")
 
-var dp[][]int
+type FaceVector map[rune]int
 
-// マルチバイトも含めた Cost 距離
-func Cost(x []rune, y []rune) int {	
-	var cost int
-	dp := make([][]int, len(x) + 1)
-	for i := 0; i <= len(x); i++ {dp[i] = make([]int, len(y) + 1)}
-	for i := 0; i <= len(x); i++ {dp[i][0] = i}
-	for i := 0; i <= len(y); i++ {dp[0][i] = i}
-	
-	for i := 1; i <= len(x); i++ {
-		for j := 1; j <= len(y); j++ {
-			if x[i - 1] == y[j - 1] {cost = 0} else {cost = 1}
-			dp[i][j] = std.Min(dp[i][j - 1] + 1, dp[i - 1][j] + 1, dp[i - 1][j - 1] + cost)
-		}
+var charSet map[rune]int
+var charHistogram map[rune]int
+var chars []rune
+var	IdToFace [][]rune
+var faceVectors []FaceVector
+
+// 正解集合
+
+// g(c)   = tf(c) * idf(c)
+// tf(c)  = 文字 C が入力テキスト中に出現する回数
+// idf(c) = log2(N / histogram(c))
+// histogram(c)   = 訓練データ中に文字 C が出現する頻度
+// N      = 学習データの総数
+func MakeFaceVector(face []rune, histogram map[rune]int, N int) FaceVector {
+	vector := make(FaceVector)
+	tf := make(map[rune]int)
+	for _, char := range face {
+		tf[char] += 1
 	}
-	return dp[len(x)][len(y)]
+	for _, char := range face {
+		vector[char] = tf[char] * bit.Log2(N / histogram[char])
+	}
+	return vector
 }
 
-func TestCostEn() {
-	fmt.Println(Cost([]rune("sitting"), []rune("kitten")) == 3)
-	fmt.Println(Cost([]rune("abcabccdaba"), []rune("abracdabra")) == 4)
-	fmt.Println(Cost(
-		[]rune("Good Evening World! This is very nice posts!"),
-		[]rune("Hello World! This is amazing posts!")) == 19)
+func ShowVector(vector FaceVector, face []rune) {
+	fmt.Println(string(face))
+	for _, char := range face {
+		fmt.Printf("%s -> %d\n", string(char), vector[char])
+	}
+	fmt.Println()
 }
 
-func TestCostJa() {
-	fmt.Println(Cost([]rune("こんにちは"), []rune("こんばんは")) == 2)
-	fmt.Println(Cost([]rune("他の言語同様に名前は重要です"), []rune("他の言語と異なり名前は不要です")) == 5)
-	fmt.Println(Cost(
-		[]rune("これがどのように行われるか詳細は言語仕様を見ていただきたいのです。"),
-		[]rune("この仕組みは、セミコロンのないすっきりしたコードを書くのに役立っています。")) == 33)
+func ShowHistogram(histogram map[rune]int) {
+	for char, count := range histogram {
+		fmt.Printf("%s : %d\n", string(char), count)
+	}
+	fmt.Println()
 }
 
-func TestCostJaAndEn() {
-	fmt.Println(Cost([]rune("あra"), []rune("こha")) == 2)
-	fmt.Println(Cost([]rune("あraGo"), []rune("こha")) == 4) // -> 3, error
-	fmt.Println(Cost(
-		[]rune("これがどのように行われるか詳細はGo言語仕様を見ていただきたいのです。"),
-		[]rune("この仕組みは、セミコロンのないすっきりしたコードを書くのに役立っています。")) == 33)
-	fmt.Println(Cost(
-		[]rune("Levenshutein 距離を計算するアルゴリズムの作成"),
-		[]rune("距離を計算するアルゴを作る")) == 18) // -> 13, error
-}
-
-func Test() {	
-	TestCostEn()
-	TestCostJa()
-	TestCostJaAndEn()
-}
+func EstimateWeight(faceVectors []FaceVector, ans [][]rune)
 
 func main() {
-	std.ReadFile("test")
+	chars = make([]rune, 0)
+	IdToFace = make([][]rune, 0)
+	charSet = make(map[rune]int)
+	charHistogram = make(map[rune]int)
+	std.ReadFile("test/kaomoji-200.txt", func(face string) {
+		exists := make(map[rune]bool)
+		for _, char := range []rune(face) {
+			if _, ok := charHistogram[char]; ok && !exists[char] {
+				charHistogram[char] += 1
+				exists[char] = true
+			}
+			if _, ok := charSet[char]; !ok {
+				chars = append(chars, char)
+				charSet[char] = len(chars) - 1
+				charHistogram[char] = 1
+			}
+		}
+		IdToFace = append(IdToFace, []rune(face))
+	})
+	// ShowHistogram(charHistogram)
+	for _, face := range IdToFace {
+		vector := MakeFaceVector(face, charHistogram, len(IdToFace))
+		faceVectors = append(faceVectors, vector)
+		// ShowVector(vector, face)
+	}
+	weight := EstimateWeight(faceVectors, ans)
 }
-
 
 
