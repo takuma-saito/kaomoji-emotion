@@ -2,16 +2,17 @@
 package main
 import (
 	"fmt"
+	"math"
 	"strings"
 	"strconv"
 	"core/std"
-	"core/bit"
 )
 
-const MAX_LOOP = 800
+const MAX_LOOP = 300
+const DELTA = 0.01
 const SEPARETOR = "$"
 
-type FaceVector map[rune]int
+type FaceVector map[rune]float64
 
 var charSet map[rune]int
 var charHistogram map[rune]int
@@ -41,7 +42,8 @@ func MakeFaceVector(face []rune) FaceVector {
 	for _, char := range face {
 		histogram, ok := charHistogram[char];
 		if !ok {continue}
-		vector[char] = tf[char] * bit.Log2(len(IdToFace) / histogram)
+		vector[char] = float64(tf[char]) *
+			math.Log2(float64(len(IdToFace)) / float64(histogram))
 	}
 	return vector
 }
@@ -49,14 +51,14 @@ func MakeFaceVector(face []rune) FaceVector {
 func ShowVector(vector FaceVector, face []rune) {
 	fmt.Println(string(face))
 	for _, char := range face {
-		fmt.Printf("%s -> %d\n", string(char), vector[char])
+		fmt.Printf("%s -> %lf\n", string(char), vector[char])
 	}
 	fmt.Println()
 }
 
 func ShowWeight(weight FaceVector) {
 	for char, w := range weight {
-		fmt.Printf("%s -> %d\n", string(char), w)
+		fmt.Printf("%s -> %lf\n", string(char), w)
 	}
 	fmt.Println()
 }
@@ -76,8 +78,8 @@ func Add(x, y FaceVector) FaceVector {
 }
 
 // 内積
-func InProduct(x, y FaceVector) int {
-	sum := 0
+func InProduct(x, y FaceVector) float64 {
+	sum := float64(0)
 	for xC, xV := range x {
 		for yC, yV := range y {
 			if xC == yC {sum += xV * yV}
@@ -86,12 +88,15 @@ func InProduct(x, y FaceVector) int {
 	return sum
 }
 
-func ScalarTimes(a int, x FaceVector) FaceVector {
-	vector := make(FaceVector)
+func ScalarTimes(a float64, x FaceVector) FaceVector {
 	for c, v := range x {
-		vector[c] = v * a
+		x[c] = v * a
 	}
-	return vector
+	return x
+}
+
+func Sign(x float64) int {
+	if x < 0 {return -1} else {return 1}
 }
 
 func EstimateWeight(learningItems []LearningItem) FaceVector {
@@ -100,8 +105,8 @@ func EstimateWeight(learningItems []LearningItem) FaceVector {
 	for i := 0; i < MAX_LOOP; i++ {
 		for j := 0; j < len(learningItems); j++ {
 			item := learningItems[j]
-			if item.answer != std.Sign(InProduct(item.input, weight)) {
-				weight = ScalarTimes(item.answer, Add(weight, item.input))
+			if item.answer != Sign(InProduct(item.input, weight)) {
+				weight = ScalarTimes(float64(item.answer) * DELTA, Add(weight, item.input))
 			}
 			// ShowVector(ScalarTimes(item.answer, Add(weight, item.input)), IdToFace[j])
 		}
@@ -118,7 +123,7 @@ func Init() {
 }
 
 func Predict(face string, weight FaceVector) int {
-	return std.Sign(InProduct(weight, MakeFaceVector([]rune(face))))
+	return Sign(InProduct(weight, MakeFaceVector([]rune(face))))
 }
 
 func main() {
@@ -129,7 +134,8 @@ func main() {
 		linenum++
 		words := strings.Split(line, SEPARETOR)
 		face := words[0]
-		if len(words) != 2 {panic(fmt.Sprintf("Informal Learning data: %d %v\n", linenum, words))}
+		if len(words) != 2 {
+			panic(fmt.Sprintf("Informal Learning data: %d %v\n", linenum, words))}
 		exists := make(map[rune]bool)
 		for _, char := range []rune(face) {
 			if _, ok := charHistogram[char]; ok && !exists[char] {
@@ -156,9 +162,10 @@ func main() {
 	weight := EstimateWeight(learningItems)
 	
 	// 学習の判定結果を見る
-	std.ReadFile("test/kaomoji-200.txt", func(face string) {
+	std.ReadFile("test/kaomoji-250.txt", func(face string) {
 		fmt.Printf("%s  ---> %s\n", string(face), toJa[Predict(face, weight)])
 	})
 }
+
 
 
