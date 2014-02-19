@@ -9,8 +9,8 @@ import (
 	"core/bit"
 )
 
-const MAX_LOOP = 500
-const DELTA = 1.0
+const MAX_LOOP = 1
+const DELTA = 1
 const SEPARETOR = "$"
 
 type FaceVector map[rune]float64
@@ -112,12 +112,12 @@ func Partition(n int) int {
 	return (1 + bit.Log2(n)) * 4
 }
 
-func (items *LearningItems) Predict(face string) int {
+func (items *LearningItems) Predict(face Face) int {
 	return Sign(InProduct(items.weight,
-		MakeFaceVector([]rune(face), items.histogram, len(items.faces))))
+		MakeFaceVector(face, items.histogram, len(items.faces))))
 }
 
-func MakeFaceVector(face []rune, histogram map[rune]int, N int) FaceVector {
+func MakeFaceVector(face Face, histogram map[rune]int, N int) FaceVector {
 	vector := make(FaceVector)
 	tf := make(map[rune]int)
 	for _, char := range face {
@@ -174,22 +174,69 @@ func (items *LearningItems) EstimateWeight() {
 	}
 }
 
+type Tuple struct {
+	face Face
+	ans int
+}
+
+// メモリ割り当てを行う slice
+func Slice(list []Tuple, x, y int) (main []Tuple, rest []Tuple) {
+	before := make([]Tuple, x)
+	after := make([]Tuple, len(list) - y)
+	main = make([]Tuple, y - x)
+	copy(before, list[0:x])
+	copy(main, list[x:y])
+	copy(after, list[y:len(list)])
+	rest = append(before, after...)
+	return
+}
+
+func TranposeTuple(tuples []Tuple) (faces []Face, ans []int) {
+	for _, tuple := range tuples {
+		faces = append(faces, tuple.face)
+		ans = append(ans, tuple.ans)
+	}
+	return
+}
+
 // 交差検定
 func CrossValidate(faces []Face, ans []int) {
 	k := Partition(len(faces)) // 分割数
-	for i := 1; i <= len(faces) / k; i++ {
-		// data := 
+	trials := 0
+	error := 0
+	tuples := make([]Tuple, len(faces))
+	for i, _ := range tuples {tuples[i] = Tuple{face:faces[i], ans:ans[i]}}
+	for i := 1; i <= len(tuples) / k; i++ {
+		main, rest := Slice(tuples, (i - 1) * k, i * k)
+		items := MakeLItems(TranposeTuple(main))
+		items.EstimateWeight()
+		for _, tuple := range rest {
+			trials += 1
+			if (tuple.ans != items.Predict(tuple.face)) {error += 1}
+		}
 	}
+	fmt.Printf("Partition: %d\n", k)
+	fmt.Printf("trials: %d\nerror:%d\nsuccess rate: %3.2f%%\n",
+		trials, error, 100 * float64(error) / float64(trials))
 }
 
-func main() {
+func Play() {
 	faces, ans := GetFacesFromFile("test/fun-sad-face.txt")
 	items := MakeLItems(faces, ans)
 	items.EstimateWeight()
 	// ShowWeight(items.weight)
 	// ShowVectors(items.faceVectors, items.faces)
 	std.ReadFile("test/kaomoji-250.txt", func(face string) {
-		fmt.Printf("%-20s --> %s\n", string(face), toJa[items.Predict(face)])
+		fmt.Printf("%-20s --> %s\n", string(face), toJa[items.Predict(Face([]rune(face)))])
 	})
+}
+
+func Test() {
+	CrossValidate(GetFacesFromFile("test/fun-sad-face.txt"))
+}
+
+func main() {
+	//Play()
+	Test()
 }
 
