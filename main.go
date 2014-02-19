@@ -9,7 +9,8 @@ import (
 	"core/bit"
 )
 
-const MAX_LOOP = 1
+// MAX: 50,  DELTA: 1
+const MAX_LOOP = 50
 const DELTA = 1
 const SEPARETOR = "$"
 
@@ -109,7 +110,7 @@ func Sign(x float64) int {
 }
 
 func Partition(n int) int {
-	return (1 + bit.Log2(n)) * 4
+	return n / ((1 + bit.Log2(n)) * 3)
 }
 
 func (items *LearningItems) Predict(face Face) int {
@@ -163,6 +164,7 @@ func MakeLItems(faces []Face, ans []int) *LearningItems {
 
 func (items *LearningItems) EstimateWeight() {
 	items.weight = make(FaceVector)
+	v := make(FaceVector)
 	for char, _ := range items.histogram {items.weight[char] = 0}
 	for i := 0; i < MAX_LOOP; i++ {
 		for j := 0; j < len(items.faces); j++ {
@@ -170,8 +172,10 @@ func (items *LearningItems) EstimateWeight() {
 				items.weight = Add(items.weight,
 					ScalarTimes(float64(items.ans[j]) * DELTA, items.faceVectors[j]))
 			}
+			v = Add(items.weight, v)
 		}
 	}
+	items.weight = ScalarTimes(1.0 / float64(len(items.faces) * MAX_LOOP), v)
 }
 
 type Tuple struct {
@@ -208,16 +212,20 @@ func CrossValidate(faces []Face, ans []int) {
 	for i, _ := range tuples {tuples[i] = Tuple{face:faces[i], ans:ans[i]}}
 	for i := 1; i <= len(tuples) / k; i++ {
 		main, rest := Slice(tuples, (i - 1) * k, i * k)
-		items := MakeLItems(TranposeTuple(main))
+		items := MakeLItems(TranposeTuple(rest))
 		items.EstimateWeight()
-		for _, tuple := range rest {
+		for _, tuple := range main {
+			if (tuple.ans != items.Predict(tuple.face)) {
+				fmt.Printf("error: %-15s %s\n", string(tuple.face),
+					toJa[items.Predict(tuple.face)])
+				error += 1
+			}
 			trials += 1
-			if (tuple.ans != items.Predict(tuple.face)) {error += 1}
 		}
 	}
 	fmt.Printf("Partition: %d\n", k)
 	fmt.Printf("trials: %d\nerror:%d\nsuccess rate: %3.2f%%\n",
-		trials, error, 100 * float64(error) / float64(trials))
+		trials, error, 100 * float64(trials - error) / float64(trials))
 }
 
 func Play() {
@@ -227,7 +235,7 @@ func Play() {
 	// ShowWeight(items.weight)
 	// ShowVectors(items.faceVectors, items.faces)
 	std.ReadFile("test/kaomoji-250.txt", func(face string) {
-		fmt.Printf("%-20s --> %s\n", string(face), toJa[items.Predict(Face([]rune(face)))])
+		fmt.Printf("%-15s %s\n", string(face), toJa[items.Predict(Face([]rune(face)))])
 	})
 }
 
@@ -236,7 +244,7 @@ func Test() {
 }
 
 func main() {
-	//Play()
-	Test()
+	// Test()
+	Play()
 }
 
