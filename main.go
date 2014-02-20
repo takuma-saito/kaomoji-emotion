@@ -4,53 +4,72 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"strconv"
 	"core/std"
 	"core/bit"
 )
 
 // MAX: 50,  DELTA: 1
-const MAX_LOOP = 50
+const MAX_LOOP = 10
 const DELTA = 1
 const SEPARETOR = "$"
 
 type FaceVector map[rune]float64
-type Face []rune
+type Name []rune
 
-type LearningItems struct {
-	histogram map[rune]int    // 文字の頻度分布
-	faces []Face              // 顔文字集合
-	faceVectors []FaceVector  // 顔文字の特徴ベクトル
-	ans []int
-	weight FaceVector
+// 分類集合の情報
+type Class struct {	
+	name map[uint64]int  // クラス集合（分類集合）の名前
+	id []Name            // クラスID
 }
 
-// 日本語に変換
-var toJa = map[int]string{-1:"悲しい", 1:"楽しい"}
+// 学習データ
+type LearningItems struct {
+	histogram map[rune]int    // 文字の頻度分布
+	faces []Name              // 顔文字集合
+	faceVectors []FaceVector  // 顔文字の特徴ベクトル
+	weights []FaceVector       // クラス学習用の重み関数
+	answers []int             // 正解クラス
+	class Class
+}
 
-func GetFacesFromFile(filename string) (faces []Face, ans[]int) {
+func MakeHash(name []rune) uint64 {
+	hash := uint64(1)
+	for _, k := range name {hash = hash << 6 + uint64(k)}
+	return hash
+}
+
+func GetFacesFromFile(filename string) (faces []Name, answers []int, class Class) {
+	var ans int
+	className := make(map[uint64]int)
+	classID := []Name{}
 	linenum := 0
+	id := 0
 	std.ReadFile(filename, func(line string) {
 		words := strings.Split(line, SEPARETOR)
 		linenum += 1
 		if len(words) != 2 {
 			panic(fmt.Sprintf("Informal Learning data: %d %v\n", linenum, words))}
-		x, err := strconv.Atoi(words[1])
-		if err != nil {
-			panic(fmt.Sprintf("can't convert string to int: %s\n", words[1]))}
-		faces = append(faces, Face(words[0]))
-		ans = append(ans, x)
+		faces = append(faces, Name(words[0]))
+		h := MakeHash([]rune(words[1]))
+		if c, ok := className[h]; ok {ans = c} else {
+			className[h] = id
+			classID = append(classID, Name(words[1]))
+			ans = id
+			id += 1
+		}
+		answers = append(answers, ans)
 	})
+	class = Class{name:className, id:classID}
 	return
 }
 
-func ShowFaces(faces []Face) {
+func ShowFaces(faces []Name) {
 	for _, face := range faces {
 		fmt.Println(string(face))
 	}
 }
 
-func ShowVector(vector FaceVector, face Face) {
+func ShowVector(vector FaceVector, face Name) {
 	fmt.Println(string(face))
 	for _, char := range face {
 		fmt.Printf("%s -> %3.1f\n", string(char), vector[char])
@@ -58,7 +77,7 @@ func ShowVector(vector FaceVector, face Face) {
 	fmt.Println()
 }
 
-func ShowVectors(vectors []FaceVector, faces []Face) {
+func ShowVectors(vectors []FaceVector, faces []Name) {
 	for i, vector := range vectors {
 		ShowVector(vector, faces[i])
 	}
@@ -67,7 +86,14 @@ func ShowVectors(vectors []FaceVector, faces []Face) {
 
 func ShowWeight(weight FaceVector) {
 	for char, w := range weight {
-		fmt.Printf("%s -> %3.1f\n", string(char), w)
+		fmt.Printf("%-5s %3.1f\n", string(char), w)
+	}
+	fmt.Printf("\n\n")
+}
+
+func ShowWeights(weights []FaceVector) {
+	for _, weight := range weights {
+		ShowWeight(weight)
 	}
 	fmt.Println()
 }
@@ -77,6 +103,21 @@ func ShowHistogram(histogram map[rune]int) {
 		fmt.Printf("%s : %d\n", string(char), count)
 	}
 	fmt.Println()
+}
+
+func  ShowClass(class Class) {
+	for id, className := range class.id {
+		fmt.Printf("%d : %s\n", id, string(className))
+	}
+	fmt.Println()
+}
+
+func (items *LearningItems) Show() {
+	ShowHistogram(items.histogram)
+	ShowFaces(items.faces)
+	ShowVectors(items.faceVectors, items.faces)
+	ShowWeights(items.weights)
+	ShowClass(items.class)
 }
 
 func Add(x, y FaceVector) FaceVector {
@@ -105,20 +146,32 @@ func ScalarTimes(a float64, vector FaceVector) FaceVector {
 	return res
 }
 
-func Sign(x float64) int {
-	if x < 0 {return -1} else {return 1}
+func Sign(x float64) float64 {
+	if x < 0 {return float64(-1)} else {return float64(1)}
 }
 
 func Partition(n int) int {
 	return n / ((1 + bit.Log2(n)) * 3)
 }
 
-func (items *LearningItems) Predict(face Face) int {
-	return Sign(InProduct(items.weight,
-		MakeFaceVector(face, items.histogram, len(items.faces))))
+func ArgMax(weights []FaceVector, vector FaceVector) int {
+	max := math.Inf(-1); res := 0
+	for i, weight := range weights {
+		result := InProduct(weight, vector)
+		if result > max {
+			res = i
+			max = result
+		}
+	}
+	return res
 }
 
-func MakeFaceVector(face Face, histogram map[rune]int, N int) FaceVector {
+func (items *LearningItems) Predict(face Name) int {
+	return ArgMax(items.weights,
+		MakeFaceVector(face, items.histogram, len(items.faces)))
+}
+
+func MakeFaceVector(face Name, histogram map[rune]int, N int) FaceVector {
 	vector := make(FaceVector)
 	tf := make(map[rune]int)
 	for _, char := range face {
@@ -132,12 +185,13 @@ func MakeFaceVector(face Face, histogram map[rune]int, N int) FaceVector {
 	return vector
 }
 
-func MakeLItems(faces []Face, ans []int) *LearningItems {
+func MakeLItems(faces []Name, answers []int, class Class) *LearningItems {
 	items := &LearningItems{
 		histogram: make(map[rune]int),
 		faces: faces,
 		faceVectors: []FaceVector{},
-		ans: ans,
+		class: class,
+		answers: answers,		
 	}
 	
 	// histogram の構成
@@ -162,25 +216,39 @@ func MakeLItems(faces []Face, ans []int) *LearningItems {
 	return items
 }
 
-func (items *LearningItems) EstimateWeight() {
-	items.weight = make(FaceVector)
-	v := make(FaceVector)
-	for char, _ := range items.histogram {items.weight[char] = 0}
+// OK -> NG の時 true  -> 重みを増やす
+// NG -> OK の時 false -> 重みを減らす
+func TorF(r bool) float64 {
+	if r {return float64(1)} else {return float64(-1)}
+}
+
+func (items *LearningItems) EstimateWeight(class int) FaceVector {
+	weight := make(FaceVector)
+	for char, _ := range items.histogram {weight[char] = 0}
 	for i := 0; i < MAX_LOOP; i++ {
 		for j := 0; j < len(items.faces); j++ {
-			if items.ans[j] != Sign(InProduct(items.faceVectors[j], items.weight)) {
-				items.weight = Add(items.weight,
-					ScalarTimes(float64(items.ans[j]) * DELTA, items.faceVectors[j]))
+			predicted := Sign(InProduct(weight, items.faceVectors[j]))
+			answer := TorF(items.answers[j] == class)
+			// 間違えた場合に学習を行う *ここがおかしい*
+			if predicted != answer  {
+				weight = Add(weight,
+					ScalarTimes(answer * DELTA, items.faceVectors[j]))
 			}
-			v = Add(items.weight, v)
 		}
 	}
-	items.weight = ScalarTimes(1.0 / float64(len(items.faces) * MAX_LOOP), v)
+	return weight
+}
+
+func (items *LearningItems) EstimateWeights() {
+	items.weights = make([]FaceVector, len(items.class.id))
+	for i, _ := range items.class.id {
+		items.weights[i] = items.EstimateWeight(i)
+	}
 }
 
 type Tuple struct {
-	face Face
-	ans int
+	face Name
+	answer int
 }
 
 // メモリ割り当てを行う slice
@@ -195,29 +263,31 @@ func Slice(list []Tuple, x, y int) (main []Tuple, rest []Tuple) {
 	return
 }
 
-func TranposeTuple(tuples []Tuple) (faces []Face, ans []int) {
+func TranposeTuple(tuples []Tuple) (faces []Name, answers []int) {
 	for _, tuple := range tuples {
 		faces = append(faces, tuple.face)
-		ans = append(ans, tuple.ans)
+		answers = append(answers, tuple.answer)
 	}
 	return
 }
 
 // 交差検定
-func CrossValidate(faces []Face, ans []int) {
+func CrossValidate(faces []Name, answers []int, class Class) {
 	k := Partition(len(faces)) // 分割数
 	trials := 0
 	error := 0
 	tuples := make([]Tuple, len(faces))
-	for i, _ := range tuples {tuples[i] = Tuple{face:faces[i], ans:ans[i]}}
+	for i, _ := range tuples {tuples[i] = Tuple{face:faces[i], answer:answers[i]}}
 	for i := 1; i <= len(tuples) / k; i++ {
 		main, rest := Slice(tuples, (i - 1) * k, i * k)
-		items := MakeLItems(TranposeTuple(rest))
-		items.EstimateWeight()
+		faces, answers := TranposeTuple(rest)
+		items := MakeLItems(faces,  answers, class) // *bug* class が適切ではない
+		items.EstimateWeights()
 		for _, tuple := range main {
-			if (tuple.ans != items.Predict(tuple.face)) {
-				fmt.Printf("error: %-15s %s\n", string(tuple.face),
-					toJa[items.Predict(tuple.face)])
+			if (tuple.answer != items.Predict(tuple.face)) {
+				fmt.Printf("error: %-15s %s\n",
+					string(tuple.face),
+					string(items.class.id[items.Predict(tuple.face)]))
 				error += 1
 			}
 			trials += 1
@@ -229,13 +299,13 @@ func CrossValidate(faces []Face, ans []int) {
 }
 
 func Play() {
-	faces, ans := GetFacesFromFile("test/fun-sad-face.txt")
-	items := MakeLItems(faces, ans)
-	items.EstimateWeight()
-	// ShowWeight(items.weight)
-	// ShowVectors(items.faceVectors, items.faces)
+	items := MakeLItems(GetFacesFromFile("test/category.txt"))
+	items.EstimateWeights()
+	//ShowWeights(items.weights)
 	std.ReadFile("test/kaomoji-250.txt", func(face string) {
-		fmt.Printf("%-15s %s\n", string(face), toJa[items.Predict(Face([]rune(face)))])
+		fmt.Printf("%-15s %s\n",
+			string(face),
+			string(items.class.id[items.Predict(Name(face))]))
 	})
 }
 
