@@ -229,6 +229,7 @@ func TorF(r bool) float64 {
 }
 
 func (items *LearningItems) EstimateWeight(class int) FaceVector {
+	v := make(FaceVector)
 	weight := make(FaceVector)
 	for char, _ := range items.histogram {weight[char] = 0}
 	for i := 0; i < MAX_LOOP; i++ {
@@ -240,9 +241,10 @@ func (items *LearningItems) EstimateWeight(class int) FaceVector {
 				weight = Add(weight,
 					ScalarTimes(answer * DELTA, items.faceVectors[j]))
 			}
+			v = Add(v, weight)
 		}
 	}
-	return weight
+	return ScalarTimes(1.0 / float64(len(items.faces) * MAX_LOOP), v)
 }
 
 func (items *LearningItems) EstimateWeights() {
@@ -298,7 +300,7 @@ func Play() {
 }
 
 func Test() {
-	CrossValidate(ReadLines(("test/category.txt")))
+	CrossValidate(ReadLines(("test/fun-sad-face.txt")))
 }
 
 func main() {
