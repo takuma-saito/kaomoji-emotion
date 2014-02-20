@@ -11,7 +11,8 @@ import (
 // MAX: 50,  DELTA: 1
 const MAX_LOOP = 10
 const DELTA = 1
-const SEPARETOR = "$"
+const MERGIN = 0
+const SEPARETOR = '$'
 
 type FaceVector map[rune]float64
 type Name []rune
@@ -52,7 +53,7 @@ func GetFaces(lines []string) (faces []Name, answers []int, class Class) {
 	classID := []Name{}
 	id := 0
 	for linenum, line := range lines {
-		words := strings.Split(line, SEPARETOR)
+		words := strings.Split(line, string(SEPARETOR))
 		if len(words) != 2 {
 			panic(fmt.Sprintf("Informal Learning data: %d %v\n", linenum + 1, words))}
 		faces = append(faces, Name(words[0]))
@@ -153,7 +154,7 @@ func ScalarTimes(a float64, vector FaceVector) FaceVector {
 }
 
 func Sign(x float64) float64 {
-	if x < 0 {return float64(-1)} else {return float64(1)}
+	if x < MERGIN {return float64(-1)} else {return float64(1)}
 }
 
 func Partition(n int) int {
@@ -188,6 +189,10 @@ func MakeFaceVector(face Name, histogram map[rune]int, N int) FaceVector {
 		if !ok {continue}
 		vector[char] = float64(tf[char]) * math.Log2(float64(N) / float64(count))
 	}
+	
+	// バイアス項
+	vector[rune(SEPARETOR)] = float64(1.0)
+	
 	return vector
 }
 
@@ -237,7 +242,7 @@ func (items *LearningItems) EstimateWeight(class int) FaceVector {
 			predicted := Sign(InProduct(weight, items.faceVectors[j]))
 			answer := TorF(items.answers[j] == class)
 			// 間違えた場合に学習を行う
-			if predicted != answer  {
+			if predicted != answer {
 				weight = Add(weight,
 					ScalarTimes(answer * DELTA, items.faceVectors[j]))
 			}
@@ -300,7 +305,7 @@ func Play() {
 }
 
 func Test() {
-	CrossValidate(ReadLines(("test/fun-sad-face.txt")))
+	CrossValidate(ReadLines(("test/category.txt")))
 }
 
 func main() {
