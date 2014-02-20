@@ -1,9 +1,12 @@
+
 package main
+
 import (
 	"fmt"
 	"math"
 	"time"
 	"strings"
+	"./server"
 	"core/std"
 	"core/bit"
 )
@@ -69,6 +72,8 @@ func GetFaces(lines []string) (faces []Name, answers []int, class Class) {
 	class = Class{name:className, id:classID}
 	return
 }
+
+// Debug function
 
 func ShowFaces(faces []Name) {
 	for _, face := range faces {
@@ -302,7 +307,7 @@ func Play() {
 	items := MakeLItems(GetFaces(ReadLines(("test/category.txt"))))
 	items.EstimateWeight()
 	//ShowWeights(items.weights)
-	std.ReadFile("test/kaomoji-250.txt", func(face string) {
+	std.ReadFile("test/kaomoji-300.txt", func(face string) {
 		fmt.Printf("%-15s %s\n",
 			string(face),
 			string(items.class.id[items.Predict(Name(face))]))
@@ -313,8 +318,19 @@ func Test() {
 	CrossValidate(ReadLines(("test/category.txt")))
 }
 
+func StartServer(port int) {
+	items := MakeLItems(GetFaces(ReadLines(("test/category.txt"))))
+	items.EstimateWeight()
+	server.Start(port, func(face string) string {
+		if len(face) == 0 {return face}
+		return string(items.class.id[items.Predict(Name(face))])
+	})
+}
+
 func main() {
 	// Test()
+	StartServer(6666)
 	Play()
 }
+
 
