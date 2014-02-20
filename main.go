@@ -38,17 +38,23 @@ func MakeHash(name []rune) uint64 {
 	return hash
 }
 
-func GetFacesFromFile(filename string) (faces []Name, answers []int, class Class) {
+func ReadLines(filename string) []string {
+	var lines []string
+	std.ReadFile(filename, func(line string) {
+		lines = append(lines, line)
+	})
+	return lines
+}
+
+func GetFaces(lines []string) (faces []Name, answers []int, class Class) {
 	var ans int
 	className := make(map[uint64]int)
 	classID := []Name{}
-	linenum := 0
 	id := 0
-	std.ReadFile(filename, func(line string) {
+	for linenum, line := range lines {
 		words := strings.Split(line, SEPARETOR)
-		linenum += 1
 		if len(words) != 2 {
-			panic(fmt.Sprintf("Informal Learning data: %d %v\n", linenum, words))}
+			panic(fmt.Sprintf("Informal Learning data: %d %v\n", linenum + 1, words))}
 		faces = append(faces, Name(words[0]))
 		h := MakeHash([]rune(words[1]))
 		if c, ok := className[h]; ok {ans = c} else {
@@ -58,7 +64,7 @@ func GetFacesFromFile(filename string) (faces []Name, answers []int, class Class
 			id += 1
 		}
 		answers = append(answers, ans)
-	})
+	}
 	class = Class{name:className, id:classID}
 	return
 }
@@ -229,7 +235,7 @@ func (items *LearningItems) EstimateWeight(class int) FaceVector {
 		for j := 0; j < len(items.faces); j++ {
 			predicted := Sign(InProduct(weight, items.faceVectors[j]))
 			answer := TorF(items.answers[j] == class)
-			// 間違えた場合に学習を行う *ここがおかしい*
+			// 間違えた場合に学習を行う
 			if predicted != answer  {
 				weight = Add(weight,
 					ScalarTimes(answer * DELTA, items.faceVectors[j]))
@@ -246,48 +252,30 @@ func (items *LearningItems) EstimateWeights() {
 	}
 }
 
-type Tuple struct {
-	face Name
-	answer int
-}
-
 // メモリ割り当てを行う slice
-func Slice(list []Tuple, x, y int) (main []Tuple, rest []Tuple) {
-	before := make([]Tuple, x)
-	after := make([]Tuple, len(list) - y)
-	main = make([]Tuple, y - x)
-	copy(before, list[0:x])
-	copy(main, list[x:y])
-	copy(after, list[y:len(list)])
-	rest = append(before, after...)
-	return
-}
-
-func TranposeTuple(tuples []Tuple) (faces []Name, answers []int) {
-	for _, tuple := range tuples {
-		faces = append(faces, tuple.face)
-		answers = append(answers, tuple.answer)
-	}
+func Slice(list []string, x, y int) (main []string, rest []string) {
+	if x > y {panic(fmt.Sprintf("slice must be y > x: %d > %d\n", x, y))}
+	main = append(make([]string, 0), list[x:y]...)
+	rest = append(append(make([]string, 0), list[0:x]...), list[y:len(list)]...)
 	return
 }
 
 // 交差検定
-func CrossValidate(faces []Name, answers []int, class Class) {
-	k := Partition(len(faces)) // 分割数
+func CrossValidate(lines []string) {
+	k := Partition(len(lines)) // 分割数
 	trials := 0
 	error := 0
-	tuples := make([]Tuple, len(faces))
-	for i, _ := range tuples {tuples[i] = Tuple{face:faces[i], answer:answers[i]}}
-	for i := 1; i <= len(tuples) / k; i++ {
-		main, rest := Slice(tuples, (i - 1) * k, i * k)
-		faces, answers := TranposeTuple(rest)
-		items := MakeLItems(faces,  answers, class) // *bug* class が適切ではない
-		items.EstimateWeights()
-		for _, tuple := range main {
-			if (tuple.answer != items.Predict(tuple.face)) {
-				fmt.Printf("error: %-15s %s\n",
-					string(tuple.face),
-					string(items.class.id[items.Predict(tuple.face)]))
+	for i := 1; i <= len(lines) / k; i++ {
+		main, rest := Slice(lines, (i - 1) * k, i * k)
+		itemsL := MakeLItems(GetFaces(rest))
+		itemsL.EstimateWeights()
+		items := MakeLItems(GetFaces(main))
+		for i, face := range items.faces {
+			answer := string(items.class.id[items.answers[i]])
+			predicted := string(itemsL.class.id[itemsL.Predict(face)])
+			if answer != predicted {
+				fmt.Printf("error: %-15s %s\n", string(face),
+					string(predicted))
 				error += 1
 			}
 			trials += 1
@@ -299,7 +287,7 @@ func CrossValidate(faces []Name, answers []int, class Class) {
 }
 
 func Play() {
-	items := MakeLItems(GetFacesFromFile("test/category.txt"))
+	items := MakeLItems(GetFaces(ReadLines(("test/category.txt"))))
 	items.EstimateWeights()
 	//ShowWeights(items.weights)
 	std.ReadFile("test/kaomoji-250.txt", func(face string) {
@@ -310,11 +298,11 @@ func Play() {
 }
 
 func Test() {
-	CrossValidate(GetFacesFromFile("test/fun-sad-face.txt"))
+	CrossValidate(ReadLines(("test/category.txt")))
 }
 
 func main() {
-	// Test()
-	Play()
+	Test()
+	// Play()
 }
 

@@ -9,5 +9,3 @@ tf(c)  = 文字 C が入力テキスト中に出現する回数
 idf(c) = log2(N / histogram(c))
 histogram(c)   = 訓練データ中に文字 C が出現する頻度
 N      = 学習データの総数
-
- 
