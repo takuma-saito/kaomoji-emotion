@@ -13,7 +13,7 @@ import (
 
 // MAX: 50,  DELTA: 1
 const MAX_LOOP = 10
-const MERGIN = 3.0
+const MERGIN = 0.0
 const SEPARETOR = '$'
 var basetime time.Time
 
@@ -304,9 +304,9 @@ func CrossValidate(lines []string) {
 }
 
 func Play() {
-	items := MakeLItems(GetFaces(ReadLines(("test/category.txt"))))
+	items := MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
+	items.Show()
 	items.EstimateWeight()
-	//ShowWeights(items.weights)
 	std.ReadFile("test/kaomoji-300.txt", func(face string) {
 		fmt.Printf("%-15s %s\n",
 			string(face),
@@ -329,7 +329,7 @@ func StartServer(port int) {
 
 func main() {
 	// Test()
-	StartServer(6666)
+	//StartServer(6666)
 	Play()
 }
 
