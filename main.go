@@ -1,8 +1,8 @@
-
 package main
 import (
 	"fmt"
 	"math"
+	"time"
 	"strings"
 	"core/std"
 	"core/bit"
@@ -10,9 +10,9 @@ import (
 
 // MAX: 50,  DELTA: 1
 const MAX_LOOP = 10
-const DELTA = 1
-const MERGIN = 0
+const MERGIN = 3.0
 const SEPARETOR = '$'
+var basetime time.Time
 
 type FaceVector map[rune]float64
 type Name []rune
@@ -129,17 +129,28 @@ func (items *LearningItems) Show() {
 
 func Add(x, y FaceVector) FaceVector {
 	vector := make(FaceVector)
-	for c, v := range x {vector[c] += v}
+	for c, v := range x {vector[c] = v}
 	for c, v := range y {vector[c] += v}
 	return vector
 }
 
+func Sub(x, y FaceVector) FaceVector {
+	vector := make(FaceVector)
+	for c, v := range x {vector[c] = v}
+	for c, v := range y {vector[c] -= v}
+	return vector
+}
+
 // 内積
-func InProduct(x, y FaceVector) float64 {
+func InProduct(x, y FaceVector, chars map[rune]int) float64 {
 	sum := float64(0)
-	for xC, xV := range x {
-		for yC, yV := range y {
-			if xC == yC {sum += xV * yV}
+	for c, _ := range chars {
+		a, ok1 := x[c]
+		b, ok2 := y[c]
+		switch {
+		case ok1 && ok2: sum += a * b
+		case ok1: sum += a
+		case ok2: sum += b
 		}
 	}
 	return sum
@@ -161,10 +172,10 @@ func Partition(n int) int {
 	return n / ((1 + bit.Log2(n)) * 3)
 }
 
-func ArgMax(weights []FaceVector, vector FaceVector) int {
+func ArgMax(weights []FaceVector, vector FaceVector, chars map[rune]int) int {
 	max := math.Inf(-1); res := 0
 	for i, weight := range weights {
-		result := InProduct(weight, vector)
+		result := InProduct(weight, vector, chars)
 		if result > max {
 			res = i
 			max = result
@@ -174,8 +185,8 @@ func ArgMax(weights []FaceVector, vector FaceVector) int {
 }
 
 func (items *LearningItems) Predict(face Name) int {
-	return ArgMax(items.weights,
-		MakeFaceVector(face, items.histogram, len(items.faces)))
+	return ArgMax(items.weights, 
+		MakeFaceVector(face, items.histogram, len(items.faces)), items.histogram)
 }
 
 func MakeFaceVector(face Name, histogram map[rune]int, N int) FaceVector {
@@ -233,30 +244,24 @@ func TorF(r bool) float64 {
 	if r {return float64(1)} else {return float64(-1)}
 }
 
-func (items *LearningItems) EstimateWeight(class int) FaceVector {
-	v := make(FaceVector)
-	weight := make(FaceVector)
-	for char, _ := range items.histogram {weight[char] = 0}
+func (items *LearningItems) EstimateWeight() {
+	items.weights = make([]FaceVector, len(items.class.id))
+	for i, _ := range items.weights {
+		items.weights[i] = make(FaceVector)
+		for char, _ := range items.histogram {items.weights[i][char] = 0}
+	}
 	for i := 0; i < MAX_LOOP; i++ {
 		for j := 0; j < len(items.faces); j++ {
-			predicted := Sign(InProduct(weight, items.faceVectors[j]))
-			answer := TorF(items.answers[j] == class)
+			predicted := ArgMax(items.weights, items.faceVectors[j], items.histogram)
+			if predicted == items.answers[j] {continue}			
 			// 間違えた場合に学習を行う
-			if predicted != answer {
-				weight = Add(weight,
-					ScalarTimes(answer * DELTA, items.faceVectors[j]))
-			}
-			v = Add(v, weight)
+			items.weights[items.answers[j]] =
+				Add(items.weights[items.answers[j]], items.faceVectors[j])
+			items.weights[predicted] =
+				Sub(items.weights[predicted], items.faceVectors[j])
 		}
 	}
-	return ScalarTimes(1.0 / float64(len(items.faces) * MAX_LOOP), v)
-}
-
-func (items *LearningItems) EstimateWeights() {
-	items.weights = make([]FaceVector, len(items.class.id))
-	for i, _ := range items.class.id {
-		items.weights[i] = items.EstimateWeight(i)
-	}
+	return
 }
 
 // メモリ割り当てを行う slice
@@ -275,7 +280,7 @@ func CrossValidate(lines []string) {
 	for i := 1; i <= len(lines) / k; i++ {
 		main, rest := Slice(lines, (i - 1) * k, i * k)
 		itemsL := MakeLItems(GetFaces(rest))
-		itemsL.EstimateWeights()
+		itemsL.EstimateWeight()
 		items := MakeLItems(GetFaces(main))
 		for i, face := range items.faces {
 			answer := string(items.class.id[items.answers[i]])
@@ -295,7 +300,7 @@ func CrossValidate(lines []string) {
 
 func Play() {
 	items := MakeLItems(GetFaces(ReadLines(("test/category.txt"))))
-	items.EstimateWeights()
+	items.EstimateWeight()
 	//ShowWeights(items.weights)
 	std.ReadFile("test/kaomoji-250.txt", func(face string) {
 		fmt.Printf("%-15s %s\n",
@@ -309,7 +314,7 @@ func Test() {
 }
 
 func main() {
-	Test()
-	// Play()
+	// Test()
+	Play()
 }
 
