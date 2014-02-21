@@ -152,11 +152,7 @@ func InProduct(x, y FaceVector, chars map[rune]int) float64 {
 	for c, _ := range chars {
 		a, ok1 := x[c]
 		b, ok2 := y[c]
-		switch {
-		case ok1 && ok2: sum += a * b
-		case ok1: sum += a
-		case ok2: sum += b
-		}
+		if ok1 && ok2 {sum += a * b}
 	}
 	return sum
 }
@@ -258,7 +254,7 @@ func (items *LearningItems) EstimateWeight() {
 	for i := 0; i < MAX_LOOP; i++ {
 		for j := 0; j < len(items.faces); j++ {
 			predicted := ArgMax(items.weights, items.faceVectors[j], items.histogram)
-			if predicted == items.answers[j] {continue}			
+			if predicted == items.answers[j] {continue}
 			// 間違えた場合に学習を行う
 			items.weights[items.answers[j]] =
 				Add(items.weights[items.answers[j]], items.faceVectors[j])
@@ -305,7 +301,7 @@ func CrossValidate(lines []string) {
 
 func Play() {
 	items := MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
-	items.Show()
+	//items.Show()
 	items.EstimateWeight()
 	std.ReadFile("test/kaomoji-300.txt", func(face string) {
 		fmt.Printf("%-15s %s\n",
@@ -315,11 +311,11 @@ func Play() {
 }
 
 func Test() {
-	CrossValidate(ReadLines(("test/category.txt")))
+	CrossValidate(ReadLines(("test/category-938.txt")))
 }
 
 func StartServer(port int) {
-	items := MakeLItems(GetFaces(ReadLines(("test/category.txt"))))
+	items := MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
 	items.EstimateWeight()
 	server.Start(port, func(face string) string {
 		if len(face) == 0 {return face}
@@ -329,7 +325,7 @@ func StartServer(port int) {
 
 func main() {
 	// Test()
-	//StartServer(6666)
+	// StartServer(6666)
 	Play()
 }
 

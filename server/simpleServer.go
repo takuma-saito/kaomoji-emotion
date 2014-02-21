@@ -32,7 +32,7 @@ func echoServer(conn net.Conn, filter Filter) {
 }
 
 func Start(port int, filter Filter) {
-	print(fmt.Sprintf("listen: 0.0.0.0:%s", strconv.Itoa(port)))
+	print(fmt.Sprintf("listen: 0.0.0.0:%s\n", strconv.Itoa(port)))
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", strconv.Itoa(port)))
 	if err != nil {Exit("Error Listen: ", err.Error())}
 	for {
