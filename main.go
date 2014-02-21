@@ -6,9 +6,9 @@ import (
 	"math"
 	"time"
 	"strings"
+	"os"
+	"bufio"
 	"./server"
-	"core/std"
-	"core/bit"
 )
 
 // MAX: 50,  DELTA: 1
@@ -42,9 +42,25 @@ func MakeHash(name []rune) uint64 {
 	return hash
 }
 
+type ActionLine func(string)
+func ReadFile(FileName string, actionLine ActionLine) {
+	file, err := os.Open(FileName)
+	if err != nil {panic("can't open file")}
+	defer file.Close()
+	bufr := bufio.NewReader(file)
+	for {
+		line, err := bufr.ReadString('\n');
+		if err != nil {break}
+		if line[(len(line) - 1)] == '\n' {
+			line = line[:(len(line) - 1)]
+		}
+		actionLine(line)
+	}
+}
+
 func ReadLines(filename string) []string {
 	var lines []string
-	std.ReadFile(filename, func(line string) {
+	ReadFile(filename, func(line string) {
 		lines = append(lines, line)
 	})
 	return lines
@@ -170,7 +186,7 @@ func Sign(x float64) float64 {
 }
 
 func Partition(n int) int {
-	return n / ((1 + bit.Log2(n)) * 3)
+	return n / ((1 + int(math.Log2(float64(n)))) * 3)
 }
 
 func ArgMax(weights []FaceVector, vector FaceVector, chars map[rune]int) int {
@@ -303,7 +319,7 @@ func Play() {
 	items := MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
 	//items.Show()
 	items.EstimateWeight()
-	std.ReadFile("test/kaomoji-300.txt", func(face string) {
+	ReadFile("test/kaomoji-300.txt", func(face string) {
 		fmt.Printf("%-15s %s\n",
 			string(face),
 			string(items.class.id[items.Predict(Name(face))]))
