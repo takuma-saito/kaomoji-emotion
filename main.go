@@ -341,8 +341,8 @@ func StartServer(port int) {
 
 func main() {
 	// Test()
-	// StartServer(6666)
-	Play()
+	StartServer(6666)
+	// Play()
 }
 
 
