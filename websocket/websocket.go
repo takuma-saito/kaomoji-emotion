@@ -1,4 +1,4 @@
-package main
+package websocket
 
 // websocket のデータを bash スクリプトでやり取りする
 // http://ssklogs.blogspot.jp/2012/10/websockets-handshake-using-netcatbash.html
@@ -17,13 +17,18 @@ import (
 	"log"
 )
 
-const (
-	PORT = 8000
-	HOST = "localhost"
-)
+const ROOT = "./websocket/"
+
+type Filter func(string) string
+
+type Message struct {
+	Face string `json:"face"`
+	Emotion string `json:"emotion"`
+}
 
 // Echo Server
 func Echo(ws *websocket.Conn) {
+	defer ws.Close()
 	for {
 		in := make([]byte, 1024)
 		n, err := ws.Read(in)
@@ -34,6 +39,31 @@ func Echo(ws *websocket.Conn) {
 		received := strings.Trim(string(in[:n]), "\n")
 		fmt.Printf("Received: %s\n", received)
 		ws.Write([]byte(received + "\r\n"))
+	}
+}
+
+type handleConn func(*websocket.Conn)
+
+func HandleJson(filter Filter) handleConn {
+	return func(ws *websocket.Conn) {
+		defer ws.Close()
+		for {
+			var request, response Message
+			err := websocket.JSON.Receive(ws, &request)
+			if err != nil {
+				fmt.Printf("Error: %s\n", err.Error())
+				break
+			}		
+			response.Emotion = filter(request.Face)
+			response.Face = request.Face
+			fmt.Printf("receive: %v\n", request)
+			fmt.Printf("send: %v\n", response)
+			err = websocket.JSON.Send(ws, response)
+			if err != nil {
+				fmt.Printf("Error: %s\n", err.Error())
+				break			
+			}
+		}
 	}
 }
 
@@ -59,21 +89,17 @@ func StaticFile(name string, filename string) (url string, handler http.Handler)
 	return
 }
 
-func Start(port int, host string) {
+func Start(port int, host string, filter Filter) {
 	p := strconv.Itoa(port)
-	http.Handle("/echo", websocket.Handler(Echo));
-	http.Handle(StaticFile("/client", "client.html"))
-	http.Handle("/conn.js", Render("./static/conn.js", "conn",
+	http.Handle("/echo", websocket.Handler(HandleJson(filter)));
+	http.Handle(StaticFile("/client", ROOT + "client.html"))
+	http.Handle("/conn.js", Render(ROOT + "static/conn.js", "conn",
 		map[string]string{`port`:p, `host`:host}))
-	http.Handle("/", http.FileServer(http.Dir("./static/")));
+	http.Handle("/", http.FileServer(http.Dir(ROOT + "static/")));
 	fmt.Printf("listen: *:%s\n", p)
 	err := http.ListenAndServe(":" + p, nil);
 	if err != nil {
 		panic("ListenAndServe: " + err.Error())
 	}
-}
-
-func main() {
-	Start(PORT, HOST)
 }
 

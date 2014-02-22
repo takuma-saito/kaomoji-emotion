@@ -1,11 +1,28 @@
 @charset "UTF-8";
 
-/* content */
 #content {
-    width: 750px;
-    margin: 0 auto;
+    width: 550px;
+    margin: 40px auto 0;
 }
 
+#content h1 {
+    font-size: 30px;
+    color: #333;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+    font-weight: bold;
+    vertical-align: baseline;
+}
+
+#content p.desc {
+    font-size: 80%;
+    color: #999;
+}
+
+#content #main {
+    margin-top: 30px;
+}
+
+/* input */
 #content input#send {
     border: 2px solid #2E91AE;
     border-radius: 3px;
@@ -13,7 +30,7 @@
     margin: 0 auto;
     overflow: hidden;
     padding: 10px;
-    width: 400px;
+    width: 500px;
 }
 
 #content input#send:focus {
@@ -30,11 +47,13 @@
 
 /* msg */
 #content #msg {
-    float: right;
-    width: 290px;
+    width: 500px;
     margin-top: 10px;
     padding: 10px;
-    font-size: 120%;
+}
+
+#content #msg .face {
+    font-size: 190%;
 }
 
 

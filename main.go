@@ -9,6 +9,12 @@ import (
 	"os"
 	"bufio"
 	"./server"
+	"./websocket"
+)
+
+const (
+	PORT = 8000
+	HOST = "localhost"
 )
 
 // MAX: 50,  DELTA: 1
@@ -35,6 +41,8 @@ type LearningItems struct {
 	answers []int             // 正解クラス
 	class Class
 }
+
+var items *LearningItems
 
 func MakeHash(name []rune) uint64 {
 	hash := uint64(1)
@@ -316,7 +324,7 @@ func CrossValidate(lines []string) {
 }
 
 func Play() {
-	items := MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
+	items = MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
 	//items.Show()
 	items.EstimateWeight()
 	ReadFile("test/kaomoji-300.txt", func(face string) {
@@ -330,18 +338,30 @@ func Test() {
 	CrossValidate(ReadLines(("test/category-938.txt")))
 }
 
-func StartServer(port int) {
-	items := MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
+func PredictFace(face string) string {
+	if len(face) == 0 {return face}
+	return string(items.class.id[items.Predict(Name(face))])
+}
+
+func Init() {
+	items = MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
 	items.EstimateWeight()
-	server.Start(port, func(face string) string {
-		if len(face) == 0 {return face}
-		return string(items.class.id[items.Predict(Name(face))])
-	})
+}
+
+func StartServer(port int) {
+	Init()
+	server.Start(PORT, PredictFace)
+}
+
+func StartWeb() {
+	Init()
+	websocket.Start(PORT, HOST, PredictFace)
 }
 
 func main() {
 	// Test()
-	StartServer(6666)
+	// StartServer()
+	StartWeb()
 	// Play()
 }
 
