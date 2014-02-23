@@ -64,10 +64,7 @@ func HandleJson(filter Filter) handleConn {
 		for {
 			var request, response Message
 			err := websocket.JSON.Receive(ws, &request)
-			if err != nil {
-				fmt.Printf("Error: %s\n", err.Error())
-				break
-			}
+			if err != nil {break}
 			log.WriteString(request.Face + "\n")
 			response.Emotion = filter(request.Face)
 			response.Face = request.Face

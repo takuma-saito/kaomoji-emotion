@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	PORT = 8000
+	PORT = 8080
 	HOST = "localhost"
+	ROOT = "/Users/taku/product/kaomoji-generator/"
 )
 
 // MAX: 50,  DELTA: 1
