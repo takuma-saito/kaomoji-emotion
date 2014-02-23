@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+	"os"
 	"log"
+	"time"
 )
 
 const ROOT = "./websocket/"
@@ -44,16 +46,29 @@ func Echo(ws *websocket.Conn) {
 
 type handleConn func(*websocket.Conn)
 
+// *TODO* Log フォーマットを分離させる
 func HandleJson(filter Filter) handleConn {
 	return func(ws *websocket.Conn) {
-		defer ws.Close()
+		log, err := os.OpenFile("./log/faces.txt", os.O_RDWR|os.O_APPEND, 0600);
+		access, err := os.OpenFile("./log/access.txt", os.O_RDWR|os.O_APPEND, 0600);
+		req := ws.Request()
+		access.WriteString(
+			fmt.Sprintf("ip:%s\t" + "host:%s\t" + "ua:%s\t" + "time:%s\t\n",
+				req.RemoteAddr, req.Host, req.Header["User-Agent"][0], time.Now()))
+		access.Close()
+		if err != nil {panic(err)}
+		defer func() {
+			ws.Close()
+			log.Close()
+		}()
 		for {
 			var request, response Message
 			err := websocket.JSON.Receive(ws, &request)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err.Error())
 				break
-			}		
+			}
+			log.WriteString(request.Face + "\n")
 			response.Emotion = filter(request.Face)
 			response.Face = request.Face
 			fmt.Printf("receive: %v\n", request)
@@ -61,7 +76,7 @@ func HandleJson(filter Filter) handleConn {
 			err = websocket.JSON.Send(ws, response)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err.Error())
-				break			
+				break
 			}
 		}
 	}

@@ -348,7 +348,7 @@ func Init() {
 	items.EstimateWeight()
 }
 
-func StartServer(port int) {
+func StartServer() {
 	Init()
 	server.Start(PORT, PredictFace)
 }
@@ -359,9 +359,10 @@ func StartWeb() {
 }
 
 func main() {
+	// websocket.Start(PORT, HOST, func (line string) string {return line})
+	// StartWeb()
 	// Test()
-	// StartServer()
-	StartWeb()
+	StartServer()
 	// Play()
 }
 
