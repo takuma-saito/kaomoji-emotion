@@ -359,10 +359,10 @@ func StartWeb() {
 }
 
 func main() {
-	// websocket.Start(PORT, HOST, func (line string) string {return line})
+	websocket.Start(PORT, HOST, func (line string) string {return line})
 	// StartWeb()
 	// Test()
-	StartServer()
+	// StartServer()
 	// Play()
 }
 

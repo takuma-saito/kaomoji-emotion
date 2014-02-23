@@ -107,10 +107,10 @@ func StaticFile(name string, filename string) (url string, handler http.Handler)
 func Start(port int, host string, filter Filter) {
 	p := strconv.Itoa(port)
 	http.Handle("/echo", websocket.Handler(HandleJson(filter)));
-	http.Handle(StaticFile("/client", ROOT + "client.html"))
-	http.Handle("/conn.js", Render(ROOT + "static/conn.js", "conn",
+	http.Handle(StaticFile("/", ROOT + "client.html"))
+	http.Handle("/conn.js", Render(ROOT + "conn.js", "conn",
 		map[string]string{`port`:p, `host`:host}))
-	http.Handle("/", http.FileServer(http.Dir(ROOT + "static/")));
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(ROOT + "static/"))));
 	fmt.Printf("listen: *:%s\n", p)
 	err := http.ListenAndServe(":" + p, nil);
 	if err != nil {
