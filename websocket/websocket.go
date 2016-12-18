@@ -7,7 +7,7 @@ package websocket
 // http://gary.burd.info/go-websocket-chat
 
 import (
-	"code.google.com/p/go.net/websocket"
+	"golang.org/x/net/websocket"
 	"net/http"
 	"text/template"
 	"io/ioutil"

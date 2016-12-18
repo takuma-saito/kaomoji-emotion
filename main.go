@@ -15,7 +15,7 @@ import (
 const (
 	PORT = 8080
 	HOST = "localhost"
-	ROOT = "/Users/taku/product/kaomoji-generator/"
+	ROOT = "/Users/vitro/code/takuma-saito/kaomoji-emotion/"
 )
 
 // MAX: 50,  DELTA: 1
@@ -326,7 +326,7 @@ func CrossValidate(lines []string) {
 
 func Play() {
 	items = MakeLItems(GetFaces(ReadLines(("test/category-938.txt"))))
-	//items.Show()
+	items.Show()
 	items.EstimateWeight()
 	ReadFile("test/kaomoji-300.txt", func(face string) {
 		fmt.Printf("%-15s %s\n",
@@ -360,11 +360,12 @@ func StartWeb() {
 }
 
 func main() {
-	websocket.Start(PORT, HOST, func (line string) string {return line})
+	// websocket.Start(PORT, HOST, func (line string) string {return line})
+	//Test()
 	// StartWeb()
 	// Test()
 	// StartServer()
-	// Play()
+	Play()
 }
 
 
